@@ -1,5 +1,7 @@
 # dsh-token-usage
 
+[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com) ![dsh](https://img.shields.io/badge/dsh-0.1.5--rc.1-blue)
+
 > 统计**本机全部 DSH 会话**的历史 token 总消耗。与 `dsh-context`（只看单个会话）互补，只回答一个问题：**我一共花了多少 token？**
 
 - 🎯 **全局总量**：跨会话、跨工作区、跨 DSH home 汇总
@@ -144,6 +146,18 @@ node scripts/report.mjs            # 端到端报表
 | Host 路由 | 单测：注册 3 条路由并返回 JSON | ✅ |
 | Client 贡献 | 单测：注册 `settings.section` | ✅ |
 | 性能 | 61.6MB / 99 文件全量扫描 | ✅ ~1.4s |
+
+---
+
+## 插件规范与生态
+
+本项目按 DSH 插件规范声明，可用 `dsh plugin add` 安装，也可被插件市场索引：
+
+- **bundle 清单**（可安装的必要条件）：`dsh.bundle.patch` 指向 `cordis.patch.yml`
+- **client 清单**：`dsh.client.platform = "web"`，浏览器半通过 `exports["./client"]` 暴露
+- **兼容声明**：`dsh.compatibility.dshReleases` 标注已在 `0.1.5-rc.1` 验证
+- **npm 元数据**：`keywords` 含 `dsh-plugin` / `deepseek-harness`，并声明 `repository` / `homepage` / `bugs`
+- **仓库 topic**：已添加 `dsh-plugin`，供市场 discovery 扫描
 
 ---
 
