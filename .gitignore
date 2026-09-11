@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.DS_Store
+.idea/
+scratch/
+.dsh-token-usage-cache/
+
+# generated report snapshot (contains local usage data)
+token-report.md

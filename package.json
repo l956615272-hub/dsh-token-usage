@@ -1,0 +1,43 @@
+{
+  "name": "dsh-token-usage",
+  "version": "0.1.0",
+  "description": "全局 Token 消耗统计插件：聚合本机所有 DSH 会话的历史 token 用量（去重、只读、桌面壳优先）。Global token-usage totals across all DSH conversations.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "docs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "report": "node scripts/report.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "token",
+    "usage",
+    "statistics",
+    "token-usage"
+  ],
+  "license": "MIT"
+}
