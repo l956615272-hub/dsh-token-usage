@@ -241,11 +241,15 @@ test('provider list follows the live LLM registry when it is available', async (
   await withTempHome(async (home) => {
     seedTwoProviders(home);
     const { ctx, routes, disposers } = makeCtx();
-    // The Models page directory only declares testprov-b, so testprov-a must
-    // disappear from the quota card even though its usage exists on disk.
+    // Only registered adapters are "added" on the Models page, so testprov-a
+    // must disappear even though its usage exists, and the preset catalog must
+    // not leak in through listConfigurableProviders().
     ctx.get = (name) => (name === 'llm' ? {
-      listProviders: () => [],
-      listConfigurableProviders: () => [{ provider: 'testprov-b', displayName: 'B 网关', settingsNs: 'x', settingsPath: [] }]
+      listProviders: () => [{ id: 'testprov-b', name: 'B 网关' }],
+      listConfigurableProviders: () => [
+        { provider: 'testprov-b', displayName: 'B 网关', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'testprov-b'] },
+        { provider: 'catalog-only', displayName: 'Catalog', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'catalog-only'] }
+      ]
     } : undefined);
     apply(ctx, { homes: [home], cache: false, scanIntervalMs: 3600000 });
     const quotaRoute = routes.get('exact:/dsh-token-usage/quota');
@@ -253,7 +257,7 @@ test('provider list follows the live LLM registry when it is available', async (
     quotaRoute.handler({ method: 'GET', url: '/dsh-token-usage/quota' }, res);
     const data = JSON.parse(res.body).data;
     const listed = data.providers.map((item) => item.provider).concat(data.available.map((item) => item.provider));
-    assert.deepEqual(listed, ['testprov-b'], 'only the registry provider is listed');
+    assert.deepEqual(listed, ['testprov-b'], 'only the registered adapter is listed');
     assert.equal(data.available[0].label, 'B 网关');
     for (const dispose of disposers) dispose();
   });
