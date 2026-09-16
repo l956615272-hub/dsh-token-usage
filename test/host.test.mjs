@@ -176,19 +176,19 @@ test('quota is isolated per provider and honours the enable switch', async () =>
     quotaRoute.handler({ method: 'GET', url: '/dsh-token-usage/quota' }, initial);
     assert.equal(initial.statusCode, 200);
     const before = JSON.parse(initial.body).data;
-    const providerA = before.providers.find((item) => item.provider === 'testprov-a');
-    const providerB = before.providers.find((item) => item.provider === 'testprov-b');
-    assert.ok(providerA && providerB, 'both synthetic providers discovered');
+    // Nothing is configured yet, so both providers are picker candidates only.
+    assert.equal(before.providers.length, 0);
+    const providerA = before.available.find((item) => item.provider === 'testprov-a');
+    const providerB = before.available.find((item) => item.provider === 'testprov-b');
+    assert.ok(providerA && providerB, 'both synthetic providers offered in the picker');
     assert.equal(providerA.total, 2000);
-    assert.equal(providerA.configured, false);
-    assert.equal(providerA.enabled, false);
 
     // Only testprov-a gets a quota; testprov-b stays switched off.
     const saved = makeRes();
     quotaRoute.handler(makeReq('POST', '/dsh-token-usage/quota', {
       providers: {
         'testprov-a': { enabled: true, amount: 1, unit: '亿', refreshDay: 1, label: '网关 A' },
-        'testprov-b': { enabled: false, amount: 0, unit: '亿', refreshDay: 1, label: '' }
+        'testprov-b': { enabled: false, amount: 0, unit: '亿', refreshDay: 1, label: '备用' }
       }
     }), saved);
     await saved.done;
@@ -204,9 +204,25 @@ test('quota is isolated per provider and honours the enable switch', async () =>
     assert.equal(a.used, 2000);
     assert.equal(a.remaining, 1e8 - 2000);
     assert.equal(a.percent, 2000 / 1e8);
+    // A disabled but named row stays on the card (so it can be re-enabled).
     assert.equal(b.enabled, false);
     assert.equal(b.configured, false);
     assert.equal(after.configured, true);
+    assert.equal(after.available.some((item) => item.provider.indexOf('testprov') === 0), false);
+
+    // An all-empty entry (the previous UI wrote one per discovered provider) is
+    // pruned on read, so dead providers do not come back as card rows.
+    const pruned = makeRes();
+    quotaRoute.handler(makeReq('POST', '/dsh-token-usage/quota', {
+      providers: {
+        'testprov-a': { enabled: true, amount: 1, unit: '亿', refreshDay: 1, label: '网关 A' },
+        'testprov-b': { enabled: false, amount: 0, unit: '亿', refreshDay: 1, label: '' }
+      }
+    }), pruned);
+    await pruned.done;
+    const prunedData = JSON.parse(pruned.body).data;
+    assert.equal(prunedData.providers.some((item) => item.provider === 'testprov-b'), false, 'empty disabled entry is pruned');
+    assert.ok(prunedData.available.some((item) => item.provider === 'testprov-b'));
 
     // The file is v2 and lives under the redirected DSH_HOME.
     const file = join(home, 'dsh-token-usage', 'quota.json');
@@ -239,10 +255,12 @@ test('legacy single-quota config migrates to the busiest provider', async () => 
     assert.equal(stored.providers[migrated[0]].amount, 20);
     // The real machine data is merged with the synthetic home, so assert the
     // relationship (busiest provider) rather than a concrete provider name.
-    const busiest = data.providers.reduce((best, item) => (best === null || item.total > best.total ? item : best), null);
+    const all = data.providers.concat(data.available || []);
+    const busiest = all.reduce((best, item) => (best === null || item.total > best.total ? item : best), null);
     assert.equal(migrated[0], busiest.provider);
-    assert.equal(busiest.label, '旧配置');
-    assert.equal(busiest.quotaTokens, 2e9);
+    const migratedItem = data.providers.find((item) => item.provider === migrated[0]);
+    assert.equal(migratedItem.label, '旧配置');
+    assert.equal(migratedItem.quotaTokens, 2e9);
     for (const dispose of disposers) dispose();
   });
 });
