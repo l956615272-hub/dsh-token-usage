@@ -53,7 +53,7 @@ dsh plugin --profile desktop add /Users/d/Personal_Project/dsh-token-usage
 ### 发布到 npm 后
 
 ```sh
-dsh plugin --profile desktop add dsh-token-usage
+dsh plugin --profile desktop add @liuguangzhe/dsh-token-usage
 ```
 
 ---
@@ -125,7 +125,7 @@ node scripts/report.mjs --group day,model,project
 ```yaml
 - insert:
     - id: dsh-token-usage
-      name: dsh-token-usage
+      name: '@liuguangzhe/dsh-token-usage'
       config:
         timeZone: Asia/Shanghai     # 分天时区
         scanIntervalMs: 60000       # 后台增量刷新间隔

@@ -3,4 +3,4 @@
 # web app load ./client as the browser half.
 - insert:
     - id: dsh-token-usage
-      name: dsh-token-usage
+      name: '@liuguangzhe/dsh-token-usage'
