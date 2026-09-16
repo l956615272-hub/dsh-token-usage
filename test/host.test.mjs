@@ -18,6 +18,7 @@ function makeCtx() {
   const disposers = [];
   const ctx = {
     logger: { info() {}, warn() {} },
+    get() { return undefined; },
     effect: (factory) => {
       const disposer = factory();
       if (typeof disposer === 'function') disposers.push(disposer);
@@ -232,6 +233,28 @@ test('quota is isolated per provider and honours the enable switch', async () =>
     assert.equal(stored.providers['testprov-a'].enabled, true);
     assert.equal(stored.providers['testprov-b'].enabled, false);
 
+    for (const dispose of disposers) dispose();
+  });
+});
+
+test('provider list follows the live LLM registry when it is available', async () => {
+  await withTempHome(async (home) => {
+    seedTwoProviders(home);
+    const { ctx, routes, disposers } = makeCtx();
+    // The Models page directory only declares testprov-b, so testprov-a must
+    // disappear from the quota card even though its usage exists on disk.
+    ctx.get = (name) => (name === 'llm' ? {
+      listProviders: () => [],
+      listConfigurableProviders: () => [{ provider: 'testprov-b', displayName: 'B 网关', settingsNs: 'x', settingsPath: [] }]
+    } : undefined);
+    apply(ctx, { homes: [home], cache: false, scanIntervalMs: 3600000 });
+    const quotaRoute = routes.get('exact:/dsh-token-usage/quota');
+    const res = makeRes();
+    quotaRoute.handler({ method: 'GET', url: '/dsh-token-usage/quota' }, res);
+    const data = JSON.parse(res.body).data;
+    const listed = data.providers.map((item) => item.provider).concat(data.available.map((item) => item.provider));
+    assert.deepEqual(listed, ['testprov-b'], 'only the registry provider is listed');
+    assert.equal(data.available[0].label, 'B 网关');
     for (const dispose of disposers) dispose();
   });
 });
