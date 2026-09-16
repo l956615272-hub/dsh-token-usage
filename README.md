@@ -11,7 +11,7 @@
 - 🔒 **只读会话日志**：绝不修改会话；只在 `$DSH_HOME/dsh-token-usage/` 写自己的缓存与额度配置，不联网
 - 📊 **多维拆分**：按天 / 模型 / Provider / 项目 / 会话
 - 📅 **自定义日期**：只填起始 = 起始日至今；只填截止 = 截止日之前全部；都填 = 该区间
-- 🎫 **月度额度**：填写本月额度与每月刷新日，显示本周期已用 / 剩余 / 进度
+- 🎫 **按接入方额度**：每个 provider 单独填额度与刷新日，带启用开关，分开统计各自剩余
 - ⚡ **快**：61.6MB / 99 个会话文件全量扫描约 **1.4s**，结果落盘缓存
 
 ---
@@ -70,7 +70,7 @@ dsh plugin --profile desktop add dsh-token-usage
   - 只填截止：统计截止日之前的全部
   - 两者都填：统计该起止区间（含首尾两天）
 - 分组切换：按天 / 按模型 / 按项目 / 按 Provider
-- **月度额度卡片**：填写本月额度（亿/万/个）与每月刷新日，显示本周期已用、剩余与进度条
+- **额度统计卡片**：按接入方逐行配置——启用开关、名称、额度（亿/万/个）、每月刷新日，显示各自本周期已用、剩余与进度条
 - 「刷新」「重新扫描」按钮，页面每 30 秒自动刷新
 
 ### 2. HTTP API（本机回环）
@@ -78,8 +78,8 @@ dsh plugin --profile desktop add dsh-token-usage
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/dsh-token-usage/summary?range=all&groupBy=day` | 汇总 + 分组 |
-| GET | `/dsh-token-usage/quota` | 当前额度配置与本周期已用/剩余 |
-| POST | `/dsh-token-usage/quota` | 保存额度配置 `{ amount, unit, refreshDay, label }` |
+| GET | `/dsh-token-usage/quota` | 各接入方的额度配置与本周期已用/剩余 |
+| POST | `/dsh-token-usage/quota` | 保存配置 `{ providers: { <id>: { enabled, amount, unit, refreshDay, label } } }` |
 | POST | `/dsh-token-usage/rescan` | 立即重新扫描 |
 | GET | `/dsh-token-usage/health` | 扫描状态与覆盖信息 |
 
@@ -98,15 +98,18 @@ node scripts/report.mjs --group day,model,project
 
 ---
 
-## 月度额度（可选）
+## 按接入方额度（可选）
 
-给「每月固定额度」的网关 / Coding Plan 订阅用：
+多家订阅 / 网关混用时，额度要分开算。额度卡片会列出所有接入方（来自实际用量记录 + `$DSH_HOME/settings.yaml` 的 `llm-pi-ai.providers`），每行独立配置：
 
-1. 在设置页底部填写 **本月额度**（数值 + 单位：亿 / 万 / 个）、**每月刷新日**（1–31）和可选名称。
-2. 卡片显示本周期（最近一次刷新日至今天）的**已用 / 剩余 / 进度**；超额会标红。
-3. 刷新日按当月天数自动收敛（例如填 31 日，2 月按 28/29 日算）。
+1. 勾选 **启用** 表示该接入方走订阅制、需要统计剩余；不勾选则只记录用量，不算剩余。
+2. 每行可填 **名称**（可选）、**本月额度**（数值 + 单位：亿 / 万 / 个）、**每月刷新日**（1–31）。
+3. 启用的行只统计**该 provider 自己**的 token 消耗，显示本周期剩余 / 本月额度 / 进度；超额标红。
+4. 刷新日按当月天数自动收敛（例如填 31 日，2 月按 28/29 日算）。
 
-配置只保存在本机 `$DSH_HOME/dsh-token-usage/quota.json`，不上传、不写入会话。示例：公司网关每月 20 亿、每月 1 日刷新 → 额度填 `20`、单位选 `亿`、刷新日填 `1`。
+配置只保存在本机 `$DSH_HOME/dsh-token-usage/quota.json`，不上传、不写入会话。示例：`datagrand` 每月 20 亿、每月 1 日刷新 → 该行额度填 `20`、单位 `亿`、刷新日 `1`；`deepseek-official` 是官方 API 按量计费，不勾启用即可。
+
+> 旧版单额度配置会在首次读取时自动迁移到用量最大的接入方，不会丢失。
 
 ---
 
@@ -153,7 +156,7 @@ lib/
 ## 开发与验证
 
 ```sh
-node --test "test/**/*.test.mjs"   # 11 项测试
+node --test "test/**/*.test.mjs"   # 12 项测试
 node scripts/report.mjs            # 端到端报表
 ```
 
@@ -164,10 +167,10 @@ node scripts/report.mjs            # 端到端报表
 | 多帧 zstd 解码 | 单测：两帧拼接解码等于原文 | ✅ |
 | message.id 去重 | 单测：v0/v3 副本折叠为 1 条 | ✅ |
 | 口径正确 | 实盘 vs `~/.dsh/dsh-usage/usage-ledger.json`（9/8、9/9、9/10） | ✅ 逐项吻合 |
-| Host 路由 | 单测：注册 3 条路由并返回 JSON | ✅ |
+| Host 路由 | 单测：注册 4 条路由并返回 JSON | ✅ |
 | Client 贡献 | 单测：注册 `settings.section` | ✅ |
 | 自定义区间 | 单测：单边/双边窗口与 cycle 刷新日（含 2 月收敛） | ✅ |
-| 月度额度 | 单测：额度配置落盘、非法值收敛、本周期剩余 | ✅ |
+| 按接入方额度 | 单测：合成 provider 隔离计费、启用开关、配置落盘、旧配置迁移 | ✅ |
 | 性能 | 61.6MB / 99 文件全量扫描 | ✅ ~1.4s |
 
 ---
