@@ -8,8 +8,10 @@
 - 🧹 **正确去重**：按 `message.id` 消除 v0/v3 与 resume/fork 副本（否则虚高约 3 倍）
 - 🖥️ **桌面壳优先**：Host 只依赖 Node 内置模块，不导入 `@deepseek-ai/*`
 - 🪶 **极简**：不捆绑费用、余额、热力图、宠物
-- 🔒 **只读**：仅读取会话日志，不写、不改、不联网
+- 🔒 **只读会话日志**：绝不修改会话；只在 `$DSH_HOME/dsh-token-usage/` 写自己的缓存与额度配置，不联网
 - 📊 **多维拆分**：按天 / 模型 / Provider / 项目 / 会话
+- 📅 **自定义日期**：只填起始 = 起始日至今；只填截止 = 截止日之前全部；都填 = 该区间
+- 🎫 **月度额度**：填写本月额度与每月刷新日，显示本周期已用 / 剩余 / 进度
 - ⚡ **快**：61.6MB / 99 个会话文件全量扫描约 **1.4s**，结果落盘缓存
 
 ---
@@ -63,8 +65,12 @@ dsh plugin --profile desktop add dsh-token-usage
 重启后打开 **设置 → Token 统计**：
 
 - 总量卡片：合计 / 非缓存输入 / 输出 / 缓存读取 / 调用次数
-- 范围切换：全部 / 今天 / 近 7 天 / 近 30 天
+- 范围切换：全部 / 今天 / 近 7 天 / 近 30 天 / **自定义日期**
+  - 只填起始：统计起始日到当天
+  - 只填截止：统计截止日之前的全部
+  - 两者都填：统计该起止区间（含首尾两天）
 - 分组切换：按天 / 按模型 / 按项目 / 按 Provider
+- **月度额度卡片**：填写本月额度（亿/万/个）与每月刷新日，显示本周期已用、剩余与进度条
 - 「刷新」「重新扫描」按钮，页面每 30 秒自动刷新
 
 ### 2. HTTP API（本机回环）
@@ -72,10 +78,13 @@ dsh plugin --profile desktop add dsh-token-usage
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/dsh-token-usage/summary?range=all&groupBy=day` | 汇总 + 分组 |
+| GET | `/dsh-token-usage/quota` | 当前额度配置与本周期已用/剩余 |
+| POST | `/dsh-token-usage/quota` | 保存额度配置 `{ amount, unit, refreshDay, label }` |
 | POST | `/dsh-token-usage/rescan` | 立即重新扫描 |
 | GET | `/dsh-token-usage/health` | 扫描状态与覆盖信息 |
 
-`range`：`all`｜`today`｜`7d`｜`30d`｜`month`，或配合 `from=YYYY-MM-DD&to=YYYY-MM-DD`。
+`range`：`all`｜`today`｜`7d`｜`30d`｜`month`｜`cycle`（本额度周期）。
+也可只传 `from` / `to`（`YYYY-MM-DD`），Host 会自动推断为自定义区间——只传 `from` 表示起始至今，只传 `to` 表示截止之前全部。
 `groupBy`：`day`｜`model`｜`provider`｜`project`｜`session`。
 
 ### 3. 命令行报表（无需 DSH）
@@ -86,6 +95,18 @@ node scripts/report.mjs --range 30d        # 近 30 天
 node scripts/report.mjs --from 2026-09-08 --to 2026-09-08 --json
 node scripts/report.mjs --group day,model,project
 ```
+
+---
+
+## 月度额度（可选）
+
+给「每月固定额度」的网关 / Coding Plan 订阅用：
+
+1. 在设置页底部填写 **本月额度**（数值 + 单位：亿 / 万 / 个）、**每月刷新日**（1–31）和可选名称。
+2. 卡片显示本周期（最近一次刷新日至今天）的**已用 / 剩余 / 进度**；超额会标红。
+3. 刷新日按当月天数自动收敛（例如填 31 日，2 月按 28/29 日算）。
+
+配置只保存在本机 `$DSH_HOME/dsh-token-usage/quota.json`，不上传、不写入会话。示例：公司网关每月 20 亿、每月 1 日刷新 → 额度填 `20`、单位选 `亿`、刷新日填 `1`。
 
 ---
 
@@ -132,7 +153,7 @@ lib/
 ## 开发与验证
 
 ```sh
-node --test "test/**/*.test.mjs"   # 8 项测试
+node --test "test/**/*.test.mjs"   # 11 项测试
 node scripts/report.mjs            # 端到端报表
 ```
 
@@ -145,6 +166,8 @@ node scripts/report.mjs            # 端到端报表
 | 口径正确 | 实盘 vs `~/.dsh/dsh-usage/usage-ledger.json`（9/8、9/9、9/10） | ✅ 逐项吻合 |
 | Host 路由 | 单测：注册 3 条路由并返回 JSON | ✅ |
 | Client 贡献 | 单测：注册 `settings.section` | ✅ |
+| 自定义区间 | 单测：单边/双边窗口与 cycle 刷新日（含 2 月收敛） | ✅ |
+| 月度额度 | 单测：额度配置落盘、非法值收敛、本周期剩余 | ✅ |
 | 性能 | 61.6MB / 99 文件全量扫描 | ✅ ~1.4s |
 
 ---

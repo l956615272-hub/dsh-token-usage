@@ -104,6 +104,29 @@ test('scanner extracts usage records and de-duplicates across v0/v3 copies', () 
   assert.equal(summary.groups[0].key, 'datagrand / deepseek-v4-pro');
 });
 
+test('custom range is one-sided aware and cycle lands on the refresh day', () => {
+  const tz = 'Asia/Shanghai';
+  const fromOnly = resolveRange('custom', { timeZone: tz, from: '2026-09-08' });
+  assert.equal(fromOnly.fromDay, '2026-09-08');
+  assert.equal(fromOnly.fromMs, zonedDayStart('2026-09-08', tz));
+  assert.equal(fromOnly.toMs, null, 'from-only keeps an open upper bound (through now)');
+
+  const toOnly = resolveRange('custom', { timeZone: tz, to: '2026-09-08' });
+  assert.equal(toOnly.fromMs, null, 'to-only keeps an open lower bound (from the beginning)');
+  assert.equal(toOnly.toMs, zonedDayStart('2026-09-09', tz), 'to-only includes the whole end day');
+
+  const both = resolveRange('custom', { timeZone: tz, from: '2026-09-01', to: '2026-09-08' });
+  assert.equal(both.fromMs, zonedDayStart('2026-09-01', tz));
+  assert.equal(both.toMs, zonedDayStart('2026-09-09', tz));
+
+  const midSeptember = Date.UTC(2026, 8, 11, 4, 0, 0); // 2026-09-11 12:00 Asia/Shanghai
+  assert.equal(resolveRange('cycle', { timeZone: tz, cycleDay: 1, now: midSeptember }).fromDay, '2026-09-01');
+  assert.equal(resolveRange('cycle', { timeZone: tz, cycleDay: 20, now: midSeptember }).fromDay, '2026-08-20');
+  // A day-31 cycle clamps to the month length, so February starts on Jan 31.
+  const midFebruary = Date.UTC(2026, 1, 15, 4, 0, 0);
+  assert.equal(resolveRange('cycle', { timeZone: tz, cycleDay: 31, now: midFebruary }).fromDay, '2026-01-31');
+});
+
 test('live scan reproduces the dsh-usage ledger for stable days', (t) => {
   const home = process.env.HOME ? join(process.env.HOME, '.dsh') : null;
   const ledgerPath = home ? join(home, 'dsh-usage', 'usage-ledger.json') : null;
