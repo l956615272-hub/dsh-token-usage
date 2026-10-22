@@ -222,6 +222,52 @@ test('fill inserts empty buckets and series totals stay consistent', () => {
   assert.equal(bogus.seriesOrder, undefined);
 });
 
+test('auto granularity follows the selected range', () => {
+  const tz = 'Asia/Shanghai';
+  const now = Date.UTC(2026, 9, 22, 4, 0, 0); // 2026-10-22 12:00 Asia/Shanghai
+  const records = [
+    { time: now - 3600000, provider: 'p', model: 'm', input: 1, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'a' }
+  ];
+  const auto = (options) => buildSummary(records, { timeZone: tz, now, groupBy: 'auto', ...options });
+  const custom = (from, to) => auto({ range: 'custom', from, to });
+
+  assert.equal(auto({ range: 'today' }).groupBy, 'hour');
+  assert.equal(auto({ range: '7d' }).groupBy, '3h');
+  assert.equal(auto({ range: '30d' }).groupBy, 'day');
+  assert.equal(custom('2026-10-21', '2026-10-22').groupBy, 'hour', 'two days stays hourly');
+  assert.equal(custom('2026-10-20', '2026-10-22').groupBy, 'hour', 'three days stays hourly');
+  assert.equal(custom('2026-10-15', '2026-10-22').groupBy, '6h');
+  assert.equal(custom('2026-09-01', '2026-10-22').groupBy, 'day');
+  assert.equal(custom('2025-09-18', '2026-10-22').groupBy, 'week');
+  assert.equal(custom('2023-09-18', '2026-10-22').groupBy, 'month');
+  assert.equal(auto({ range: '30d' }).requestedGroupBy, undefined, 'auto is not reported as coarsened');
+});
+
+test('3h/6h buckets, model family and filled sub-day buckets', () => {
+  const tz = 'Asia/Shanghai';
+  const noon = Date.UTC(2026, 9, 8, 4, 30, 0); // 2026-10-08 12:30 Asia/Shanghai
+  const records = [
+    { time: noon, provider: 'p', model: 'deepseek-v4-pro', input: 1, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'a' },
+    { time: noon + 10 * 60000, provider: 'p', model: 'deepseek/deepseek-v4.1-flash', input: 2, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'a' },
+    { time: noon + 20 * 60000, provider: 'p', model: 'gpt-6-luna', input: 3, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'a' },
+    { time: noon + 30 * 60000, provider: 'p', model: 'glm-5.3', input: 4, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'a' }
+  ];
+  const three = buildSummary(records, { timeZone: tz, range: 'all', groupBy: '3h' });
+  assert.deepEqual(three.groups.map((row) => row.key), ['2026-10-08 12:00']);
+  const six = buildSummary(records, { timeZone: tz, range: 'all', groupBy: '6h' });
+  assert.deepEqual(six.groups.map((row) => row.key), ['2026-10-08 12:00']);
+
+  const family = buildSummary(records, { timeZone: tz, range: 'all', groupBy: 'hour', series: 'family' });
+  assert.deepEqual(family.seriesOrder.map((item) => item.key).sort(), ['deepseek', 'glm', 'gpt']);
+  assert.equal(family.groups.reduce((sum, row) => sum + row.total, 0), 10);
+  assert.equal(family.seriesOrder.reduce((sum, item) => sum + item.total, 0), 10);
+
+  // 12:30 -> 18:30 at 3h fills the 15:00 gap.
+  const filled = buildSummary([records[0], { ...records[0], time: noon + 6 * 3600000 }], { timeZone: tz, range: 'all', groupBy: '3h', fill: true });
+  assert.deepEqual(filled.groups.map((row) => row.key), ['2026-10-08 12:00', '2026-10-08 15:00', '2026-10-08 18:00']);
+  assert.equal(filled.groups[1].total, 0);
+});
+
 test('live scan reproduces the dsh-usage ledger for stable days', (t) => {
   const home = process.env.HOME ? join(process.env.HOME, '.dsh') : null;
   const ledgerPath = home ? join(home, 'dsh-usage', 'usage-ledger.json') : null;

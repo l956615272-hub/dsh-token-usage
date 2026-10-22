@@ -206,6 +206,15 @@ test('summary serves series, fill and the coarsen opt-out', async () => {
     assert.equal(stacked.seriesOrder.length, 2);
     assert.equal(stacked.seriesOrder.reduce((sum, item) => sum + item.total, 0), stacked.totals.total);
 
+    const autoRes = makeRes();
+    route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=custom&from=2026-09-01&to=2026-09-03&groupBy=auto&fill=1&series=family' }, autoRes);
+    const auto = JSON.parse(autoRes.body).data;
+    assert.equal(auto.groupBy, 'hour', 'three days uses hourly buckets');
+    assert.equal(auto.requestedGroupBy, undefined);
+    assert.equal(auto.series, 'family');
+    assert.equal(auto.groups.length, 72);
+    assert.equal(auto.groups[0].key, '2026-09-01 00:00');
+
     const bogus = makeRes();
     route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=all&groupBy=day&series=bogus' }, bogus);
     assert.equal(JSON.parse(bogus.body).data.series, undefined);

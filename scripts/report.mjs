@@ -71,8 +71,8 @@ function renderMarkdown(args, summary, coverage) {
   lines.push('| LLM 调用次数 | ' + fmt(summary.totals.calls) + ' |');
   lines.push('| 涉及会话数 | ' + fmt(summary.totals.sessions) + ' |');
   lines.push('');
-  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'provider', 'project'];
-  const titles = { day: '按天', model: '按模型', provider: '按 Provider', project: '按项目', session: '按会话' };
+  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'family', 'provider', 'project'];
+  const titles = { day: '按天', model: '按模型', family: '按模型家族', provider: '按 Provider', project: '按工作区', session: '按会话' };
   for (const dimension of dimensions) {
     const rows = summary.breakdowns[dimension];
     if (!rows || rows.length === 0) continue;
@@ -87,7 +87,7 @@ function renderMarkdown(args, summary, coverage) {
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help) {
-  process.stdout.write('Usage: node scripts/report.mjs [--range all|today|7d|30d] [--from YYYY-MM-DD --to YYYY-MM-DD] [--group day,model,provider,project] [--tz Asia/Shanghai] [--json]\n');
+  process.stdout.write('Usage: node scripts/report.mjs [--range all|today|7d|30d] [--from YYYY-MM-DD --to YYYY-MM-DD] [--group day,model,family,provider,project,session] [--tz Asia/Shanghai] [--json]\n');
   process.exit(0);
 }
 
@@ -102,7 +102,7 @@ const coverage = Object.assign(coverageOf(records, args.tz), {
 });
 
 if (args.json) {
-  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'provider', 'project'];
+  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'family', 'provider', 'project'];
   const breakdowns = {};
   for (const dimension of dimensions) {
     breakdowns[dimension] = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: dimension, coarsen: false }).groups;
@@ -110,7 +110,7 @@ if (args.json) {
   const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day', coarsen: false });
   process.stdout.write(JSON.stringify({ generatedAt: summary.generatedAt, range: summary.range, totals: summary.totals, coverage, breakdowns }, null, 2) + '\n');
 } else {
-  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'provider', 'project'];
+  const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'family', 'provider', 'project'];
   const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day', coarsen: false });
   const breakdowns = {};
   for (const dimension of dimensions) {
