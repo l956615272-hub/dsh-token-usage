@@ -185,6 +185,43 @@ test('time granularity buckets and the 1000-bucket guardrail coarsen', () => {
   assert.ok(weekBucket.groups.every((row, index) => index === 0 || weekBucket.groups[index - 1].key <= row.key), 'time buckets sort ascending');
 });
 
+test('fill inserts empty buckets and series totals stay consistent', () => {
+  const tz = 'Asia/Shanghai';
+  const day1 = Date.UTC(2026, 8, 1, 4, 0, 0); // 2026-09-01 12:00 Asia/Shanghai
+  const records = [
+    { time: day1, provider: 'p', model: 'm', input: 10, output: 5, cacheRead: 1, cacheWrite: 7, reasoning: 3, sessionId: 'a' },
+    { time: day1 + 3 * 86400000, provider: 'p', model: 'm', input: 1, output: 1, cacheRead: 0, cacheWrite: 2, reasoning: 1, sessionId: 'a' }
+  ];
+  const sparse = buildSummary(records, { timeZone: tz, range: 'all', groupBy: 'day' });
+  assert.equal(sparse.groups.length, 2, 'plain grouping stays sparse');
+
+  const filled = buildSummary(records, { timeZone: tz, range: 'all', groupBy: 'day', fill: true });
+  assert.deepEqual(filled.groups.map((row) => row.key), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04']);
+  assert.equal(filled.groups[1].total, 0);
+  assert.equal(filled.groups[1].calls, 0);
+
+  const stacked = buildSummary(records, { timeZone: tz, range: 'all', groupBy: 'day', series: 'model', fill: true });
+  assert.equal(stacked.groups[1].total, 0);
+  assert.deepEqual(stacked.groups[1].series, [], 'filled stacked rows carry an empty series array');
+  const series = stacked.seriesOrder[0];
+  assert.equal(series.cacheWrite, 9, 'seriesOrder accumulates cacheWrite');
+  assert.equal(series.reasoning, 4, 'seriesOrder accumulates reasoning');
+  assert.equal(series.calls, 2);
+
+  // coarsen: false keeps the exact requested grouping for the table/report.
+  const long = buildSummary([
+    { time: Date.UTC(2023, 0, 8, 4, 0, 0), provider: 'p', model: 'm', input: 1, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'x' },
+    { time: day1, provider: 'p', model: 'm', input: 1, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, sessionId: 'x' }
+  ], { timeZone: tz, range: 'all', groupBy: 'day', coarsen: false });
+  assert.equal(long.groupBy, 'day');
+  assert.equal(long.requestedGroupBy, undefined);
+
+  // Unknown series dimensions are ignored, not collapsed into "(unknown)".
+  const bogus = buildSummary(records, { timeZone: tz, range: 'all', groupBy: 'day', series: 'nope' });
+  assert.equal(bogus.series, undefined);
+  assert.equal(bogus.seriesOrder, undefined);
+});
+
 test('live scan reproduces the dsh-usage ledger for stable days', (t) => {
   const home = process.env.HOME ? join(process.env.HOME, '.dsh') : null;
   const ledgerPath = home ? join(home, 'dsh-usage', 'usage-ledger.json') : null;

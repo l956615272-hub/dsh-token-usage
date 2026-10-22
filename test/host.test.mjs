@@ -166,6 +166,54 @@ test('summary infers a custom one-sided window from from/to', async () => {
   });
 });
 
+test('summary serves series, fill and the coarsen opt-out', async () => {
+  await withTempHome(async (home) => {
+    const dir = join(home, 'sessions', '--test--', 'session-chart');
+    mkdirSync(dir, { recursive: true });
+    const now = Date.now();
+    const header = JSON.stringify({ type: 'session', version: 0, id: 'session-chart', createdAt: now, cwd: '/tmp/test' });
+    const sep1 = Date.UTC(2026, 8, 1, 4, 0, 0);  // 2026-09-01 12:00 Asia/Shanghai
+    const sep3 = sep1 + 2 * 86400000;
+    writeSession(join(dir, 'session.jsonl.zstd'), [
+      header,
+      usageEvent('chart-0', Date.UTC(2023, 0, 8, 4, 0, 0), 'p1', 'old-model', 1, 0, 0),
+      usageEvent('chart-1', sep1, 'p1', 'model-x', 10, 5, 1),
+      usageEvent('chart-2', sep3, 'p1', 'model-y', 20, 5, 2)
+    ]);
+    const { ctx, routes, disposers } = makeCtx();
+    apply(ctx, { homes: [home], cache: false, scanIntervalMs: 3600000 });
+    const route = routes.get('exact:/dsh-token-usage/summary');
+
+    const coarsened = makeRes();
+    route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=all&groupBy=day' }, coarsened);
+    const coarse = JSON.parse(coarsened.body).data;
+    assert.equal(coarse.groupBy, 'week');
+    assert.equal(coarse.requestedGroupBy, 'day');
+
+    const exact = makeRes();
+    route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=all&groupBy=day&coarsen=0' }, exact);
+    const plain = JSON.parse(exact.body).data;
+    assert.equal(plain.groupBy, 'day');
+    assert.equal(plain.groups.length, 3, 'coarsen=0 keeps the exact day grouping');
+
+    const filled = makeRes();
+    route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=custom&from=2026-09-01&to=2026-09-03&groupBy=day&fill=1&series=model' }, filled);
+    const stacked = JSON.parse(filled.body).data;
+    assert.equal(stacked.series, 'model');
+    assert.deepEqual(stacked.groups.map((row) => row.key), ['2026-09-01', '2026-09-02', '2026-09-03']);
+    assert.equal(stacked.groups[1].total, 0);
+    assert.deepEqual(stacked.groups[1].series, []);
+    assert.equal(stacked.seriesOrder.length, 2);
+    assert.equal(stacked.seriesOrder.reduce((sum, item) => sum + item.total, 0), stacked.totals.total);
+
+    const bogus = makeRes();
+    route.handler({ method: 'GET', url: '/dsh-token-usage/summary?range=all&groupBy=day&series=bogus' }, bogus);
+    assert.equal(JSON.parse(bogus.body).data.series, undefined);
+
+    for (const dispose of disposers) dispose();
+  });
+});
+
 test('quota is isolated per provider and honours the enable switch', async () => {
   await withTempHome(async (home) => {
     seedTwoProviders(home);
