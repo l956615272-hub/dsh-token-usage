@@ -105,16 +105,16 @@ if (args.json) {
   const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'provider', 'project'];
   const breakdowns = {};
   for (const dimension of dimensions) {
-    breakdowns[dimension] = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: dimension }).groups;
+    breakdowns[dimension] = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: dimension, coarsen: false }).groups;
   }
-  const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day' });
+  const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day', coarsen: false });
   process.stdout.write(JSON.stringify({ generatedAt: summary.generatedAt, range: summary.range, totals: summary.totals, coverage, breakdowns }, null, 2) + '\n');
 } else {
   const dimensions = args.groups && args.groups.length > 0 ? args.groups : ['day', 'model', 'provider', 'project'];
-  const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day' });
+  const summary = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: 'day', coarsen: false });
   const breakdowns = {};
   for (const dimension of dimensions) {
-    breakdowns[dimension] = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: dimension }).groups;
+    breakdowns[dimension] = buildSummary(records, { timeZone: args.tz, range: args.range, from: args.from, to: args.to, groupBy: dimension, coarsen: false }).groups;
   }
   summary.breakdowns = breakdowns;
   process.stdout.write(renderMarkdown(args, summary, coverage) + '\n');
