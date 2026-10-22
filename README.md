@@ -9,8 +9,8 @@
 - 🖥️ **桌面壳优先**：Host 只依赖 Node 内置模块，不导入 `@deepseek-ai/*`
 - 🪶 **极简**：不捆绑费用、余额、热力图、宠物
 - 🔒 **只读会话日志**：绝不修改会话；只在 `$DSH_HOME/dsh-token-usage/` 写自己的缓存与额度配置，不联网
-- 📊 **多维拆分**：按天 / 模型 / Provider / 项目 / 会话
-- 📈 **趋势图**：表格上方零依赖 SVG 堆叠柱状图，按模型 / 来源 / 项目 / Token 类型拆分，颗粒度从 5 分钟到月；空桶补零，超 1000 桶自动放粗
+- 📊 **多维拆分**：模型 / 模型家族 / Provider / 工作区 / 会话 / Token 类型
+- 📈 **趋势图**：零依赖 SVG 堆叠柱状图；时间轴随顶部区间自动分桶（1–3 天按小时、4–7 天按 3 小时、8–14 天按 6 小时、15–90 天按天、91–700 天按周、更长按月），空桶补零
 - 📅 **自定义日期**：只填起始 = 起始日至今；只填截止 = 截止日之前全部；都填 = 该区间
 - 🎫 **按接入方额度**：只列出已配置的接入方，其余从「添加接入方」挑选；各自额度/刷新日/启用开关，分开统计剩余
 - ⚡ **快**：61.6MB / 99 个会话文件全量扫描约 **1.4s**，结果落盘缓存
@@ -66,16 +66,18 @@ dsh plugin --profile desktop add @liuguangzhe/dsh-token-usage
 重启后打开 **设置 → Token 统计**：
 
 - 总量卡片：合计 / 非缓存输入 / 输出 / 缓存读取 / 调用次数
-- 范围切换：全部 / 今天 / 近 7 天 / 近 30 天 / **自定义日期**
+- **唯一时间控制**：全部 / 今天 / 近 7 天 / 近 30 天 / **自定义日期**
   - 只填起始：统计起始日到当天
   - 只填截止：统计截止日之前的全部
   - 两者都填：统计该起止区间（含首尾两天）
-- 表格分组：按天 / 按模型 / 按项目 / 按 Provider（与加图表前一致，默认按天）
-- **趋势图**：表格上方独立的堆叠柱状图，不改变表格分组
-  - 拆分维度：模型 / 来源 / 项目 / Token 类型
-  - 颗粒度：自动 / 5 分钟 / 15 分钟 / 30 分钟 / 小时 / 天 / 周 / 月；自动档今天按小时、90 天内按天、700 天内按周、更长按月
-  - 区间内的空日期/小时会补成 0，稀疏数据不会被画成相邻柱；单次超过 1000 个桶会自动放粗并在图上方标注
-  - 「隐藏图表」可恢复纯表格
+  - 趋势图和明细表都只跟随这个区间，没有第二套时间控件
+- **分组维度**：模型 / 模型家族 / Provider / 工作区 / 会话 / Token 类型
+  - 同一个选择同时控制上方趋势图的堆叠图例和下方明细表的分组
+- **趋势图**：
+  - 时间轴按区间自动分桶：1–3 天按小时、4–7 天按 3 小时、8–14 天按 6 小时、15–90 天按天、91–700 天按周、更长按月
+  - 区间内空桶补 0，稀疏数据不会被画成相邻柱；Top 8 系列 + 「其他」
+  - 「隐藏图表」可只看明细
+- **明细表**：当前区间 + 当前维度的合计 / 占比 / 输入 / 输出 / 缓存读取 / 调用，按合计降序，最多展示前 200 行
 - **额度统计卡片**：只列出已配置的接入方，逐行配 启用开关 / 名称 / 额度（亿/万/个）/ 每月刷新日，显示各自本周期已用、剩余与进度条；其余接入方从「＋ 添加接入方」挑选
 - 「刷新」「重新扫描」按钮，页面每 30 秒自动刷新
 
@@ -83,7 +85,7 @@ dsh plugin --profile desktop add @liuguangzhe/dsh-token-usage
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/dsh-token-usage/summary?range=all&groupBy=day` | 汇总 + 分组 |
+| GET | `/dsh-token-usage/summary?range=all&groupBy=auto&series=model&fill=1` | 汇总 + 时间桶 + 维度合计 |
 | GET | `/dsh-token-usage/quota` | 已配置接入方的额度与本周期已用/剩余，附可添加的候选列表 |
 | POST | `/dsh-token-usage/quota` | 保存配置 `{ providers: { <id>: { enabled, amount, unit, refreshDay, label } } }` |
 | POST | `/dsh-token-usage/rescan` | 立即重新扫描 |
@@ -91,13 +93,15 @@ dsh plugin --profile desktop add @liuguangzhe/dsh-token-usage
 
 `range`：`all`｜`today`｜`7d`｜`30d`｜`month`｜`cycle`（本额度周期）。
 也可只传 `from` / `to`（`YYYY-MM-DD`），Host 会自动推断为自定义区间——只传 `from` 表示起始至今，只传 `to` 表示截止之前全部。
-`groupBy`：`5m`｜`15m`｜`30m`｜`hour`｜`day`｜`week`｜`month`｜`model`｜`provider`｜`project`｜`session`。
+`groupBy`：`auto`｜`5m`｜`15m`｜`30m`｜`hour`｜`3h`｜`6h`｜`day`｜`week`｜`month`｜`model`｜`provider`｜`project`｜`session`｜`family`。
 
-时间维度（`5m` 到 `month`）默认最多 1000 个桶，超出会自动放粗为更粗的粒度；响应的 `groupBy` 是实际粒度，只有发生放粗时才附带 `requestedGroupBy`。
+`auto` 是设置页趋势图使用的默认值，按时间窗口自动选桶宽：`<=3` 天 `hour`、`<=7` 天 `3h`、`<=14` 天 `6h`、`<=90` 天 `day`、`<=700` 天 `week`、更长 `month`。
+显式时间维度（`5m` 到 `month`）默认最多 1000 个桶，超出会自动放粗；响应的 `groupBy` 是实际粒度，只有发生放粗时才附带 `requestedGroupBy`。
 
-- `series=model|provider|project|session`：时间分组时附带每桶的 `series` 拆分，以及全局 `seriesOrder`（按总量降序，含 input/output/cacheRead/cacheWrite/reasoning/calls）。
-- `fill=1`：时间分组时把区间内的空桶补成 0（图表使用；表格不传）。
-- `coarsen=0`：禁用 1000 桶自动放粗，返回请求的精确分组（设置页表格与 `scripts/report.mjs` 使用）。
+- `series=model|family|provider|project|session`：时间分组时附带每桶的 `series` 拆分，以及全局 `seriesOrder`（按总量降序，含 input/output/cacheRead/cacheWrite/reasoning/calls）。
+  - `project` 是工作区：key 为完整路径，label 为目录名；`session` 为会话 id；`family` 为模型家族（取模型名的第一段）。
+- `fill=1`：时间分组时把区间内的空桶补成 0（图表使用；表格使用 `seriesOrder`，不受影响）。
+- `coarsen=0`：禁用 1000 桶自动放粗，返回请求的精确分组（`scripts/report.mjs` 使用）。
 
 ### 3. 命令行报表（无需 DSH）
 
