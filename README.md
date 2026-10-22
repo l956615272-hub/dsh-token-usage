@@ -1,6 +1,6 @@
 # dsh-token-usage
 
-[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com) ![dsh](https://img.shields.io/badge/dsh-0.1.5--rc.1-blue)
+[![awesome · DSH plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com) ![dsh](https://img.shields.io/badge/dsh-0.1.5--rc.1%20~%200.2.1--rc.2-blue)
 
 > 统计**本机全部 DSH 会话**的历史 token 总消耗。与 `dsh-context`（只看单个会话）互补，只回答一个问题：**我一共花了多少 token？**
 
@@ -198,7 +198,7 @@ node scripts/report.mjs            # 端到端报表
 
 - **bundle 清单**（可安装的必要条件）：`dsh.bundle.patch` 指向 `cordis.patch.yml`
 - **client 清单**：`dsh.client.platform = "web"`，浏览器半通过 `exports["./client"]` 暴露
-- **兼容声明**：`dsh.compatibility.dshReleases` 标注已在 `0.1.5-rc.1` 验证
+- **兼容声明**：`engines.dsh` 声明支持 `>=0.1.5-rc.1 <=0.2.1-rc.2`，`dsh.compatibility.dshReleases` 列出该区间的 RC 版本（已在 `0.2.1-rc.2` 验证）
 - **npm 元数据**：`keywords` 含 `dsh-plugin` / `deepseek-harness`，并声明 `repository` / `homepage` / `bugs`
 - **仓库 topic**：已添加 `dsh-plugin`，供市场 discovery 扫描
 
@@ -206,7 +206,7 @@ node scripts/report.mjs            # 端到端报表
 
 ## 兼容性
 
-- DSH 目标版本：**0.1.5-rc.1**（本机 Desktop）。Host/Client 只使用稳定的 Cordis `ctx.effect` / `ctx.webServer.register` / `ctx.slots` 接口。
+- DSH 目标版本：**0.1.5-rc.1 ~ 0.2.1-rc.2**（本机 Desktop 为 0.2.1-rc.2）。Host/Client 只使用稳定的 Cordis `ctx.effect` / `ctx.webServer.register` / `ctx.slots` 接口。
 - Host 不导入任何 `@deepseek-ai/*`；Client 只 import React，桌面壳可安全加载。
 - 已知边界：只统计 `assistant/message` 口径；`compaction/summary` 默认不计（与 `dsh-usage` 账本一致）。
 
