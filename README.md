@@ -223,7 +223,8 @@ node scripts/report.mjs            # 端到端报表
 
 ## 发布
 
-- 打 tag 时同时创建 GitHub Release；说明使用中英双语、先中文后英文，格式参考 DSH 的 tag 页面（`中文 | English`、新增/修复、完整更新日志）。
+- 打 tag 前在 `docs/releases/<tag>.md` 写好中英双语说明（先中文、后英文，格式参考 DSH 的 tag 页面；模板见 `docs/releases/TEMPLATE.md`）。
+- 推送 `v*` tag 后，`.github/workflows/release.yml` 会读取该文件并自动创建 GitHub Release（已存在的 release 会跳过）。
 
 ## 许可
 

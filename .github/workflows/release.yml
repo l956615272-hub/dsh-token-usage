@@ -1,0 +1,31 @@
+name: release-notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub release from docs/releases/<tag>.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          notes="docs/releases/${tag}.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; skipping."
+            exit 0
+          fi
+          if [ ! -f "$notes" ]; then
+            echo "Missing $notes; add bilingual release notes before pushing the tag." >&2
+            exit 1
+          fi
+          gh release create "$tag" --title "$tag" --notes-file "$notes" --latest
