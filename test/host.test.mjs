@@ -373,12 +373,28 @@ test('client bundle exports a settings.section contribution', async () => {
       register: (entry, component) => { registered.push({ entry, component }); return () => {}; }
     }
   };
+  // The sidebar row is opt-in; turn it on so both entry points are exercised.
+  globalThis.localStorage = {
+    getItem: (key) => (key === 'dsh-token-usage.sidebar' ? '1' : null),
+    setItem: () => {}
+  };
   moduleValue.apply(ctx);
-  const contribution = registered.find((item) => item.entry);
-  const injected = registered.find((item) => item.slotName);
-  assert.equal(injected.slotName, 'settings.section');
-  assert.equal(contribution.entry.id, 'token-usage');
-  assert.equal(typeof contribution.entry.label(), 'string');
-  assert.equal(typeof contribution.component, 'function');
+  const sidebarInjected = registered.find((item) => item.slotName === 'sidebar.panellist');
+  const settingsInjected = registered.find((item) => item.slotName === 'settings.section');
+  assert.equal(sidebarInjected.slotName, 'sidebar.panellist');
+  assert.equal(settingsInjected.slotName, 'settings.section');
+  const contributions = registered.filter((item) => item.entry);
+  const settings = contributions.find((item) => item.entry.name === 'settings.section');
+  const main = contributions.find((item) => item.entry.name === 'main');
+  const row = contributions.find((item) => item.entry.name === 'sidebar.panellist');
+  assert.equal(settings.entry.id, 'token-usage');
+  assert.equal(typeof settings.entry.label(), 'string');
+  assert.equal(typeof settings.component, 'function');
+  assert.equal(main.entry.key, 'dsh-token-usage');
+  assert.equal(row.entry.id, 'dsh-token-usage');
+  assert.equal(row.entry.order, 2);
+  assert.equal(typeof main.component, 'function');
+  assert.equal(typeof row.component, 'function');
+  delete globalThis.localStorage;
   delete globalThis.window;
 });
