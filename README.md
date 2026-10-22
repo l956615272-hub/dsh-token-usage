@@ -36,27 +36,31 @@
 
 ## 安装
 
-本插件是可本地安装的 bundle，无第三方运行时依赖、已内置构建产物。
+本插件是可本地安装的 bundle，无第三方运行时依赖、已内置构建产物；已发布到 npm：`@liuguangzhe/dsh-token-usage`。
 
-### 安装到 Desktop profile（推荐）
-
-```sh
-dsh plugin --profile desktop add /Users/d/Personal_Project/dsh-token-usage
-```
-
-然后**重启 DSH Desktop**（host 代码与 profile bundle 变更需要重启，刷新页面不够）。
-
-> 也可以先装到一个隔离 profile 验证：
-> ```sh
-> dsh plugin --profile plugin-lab add /Users/d/Personal_Project/dsh-token-usage
-> dsh --profile plugin-lab --dump-config   # 应看到 dsh-token-usage 层与插件行
-> ```
-
-### 发布到 npm 后
+### 从 npm 安装（推荐）
 
 ```sh
 dsh plugin --profile desktop add @liuguangzhe/dsh-token-usage
 ```
+
+然后**重启 DSH Desktop**（host 代码与 profile bundle 变更需要重启，刷新页面不够）。
+
+### 从本地源码安装（开发）
+
+在仓库根目录执行：
+
+```sh
+dsh plugin --profile desktop add .
+```
+
+`.` 指当前目录；如果你在别的目录执行，把 `.` 换成仓库路径（例如 `~/Projects/dsh-token-usage`）。
+
+> 也可以先装到一个隔离 profile 验证：
+> ```sh
+> dsh plugin --profile plugin-lab add .
+> dsh --profile plugin-lab --dump-config   # 应看到 dsh-token-usage 层与插件行
+> ```
 
 ---
 

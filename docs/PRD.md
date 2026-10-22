@@ -4,7 +4,7 @@
 - 版本：v0.1.0 (MVP)
 - 日期：2026-09-11
 - 形态：DSH (DeepSeek Harness) 插件，Host + Client 双面
-- 项目路径：`/Users/d/Personal_Project/dsh-token-usage`
+- 项目路径：仓库根目录（`dsh-token-usage/`）
 
 ---
 
